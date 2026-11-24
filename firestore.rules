@@ -1,0 +1,152 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedOwner(userId) {
+      return isSignedIn()
+        && request.auth.uid == userId
+        && request.auth.token.email_verified == true;
+    }
+
+    function isValidTrack(data) {
+      return data.keys().hasAll([
+          'ownerId',
+          'title',
+          'artist',
+          'coverSrc',
+          'mimeType',
+          'fileSizeBytes',
+          'chunkCount',
+          'synthPreset',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'ownerId',
+          'title',
+          'artist',
+          'coverSrc',
+          'mimeType',
+          'fileSizeBytes',
+          'chunkCount',
+          'synthPreset',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.ownerId is string
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.title is string
+        && data.title.size() >= 1
+        && data.title.size() <= 160
+        && data.artist is string
+        && data.artist.size() >= 1
+        && data.artist.size() <= 160
+        && data.coverSrc is string
+        && data.coverSrc.size() <= 512
+        && data.mimeType is string
+        && data.mimeType.size() >= 1
+        && data.mimeType.size() <= 80
+        && data.fileSizeBytes is int
+        && data.fileSizeBytes >= 0
+        && data.fileSizeBytes <= 10485760
+        && data.chunkCount is int
+        && data.chunkCount >= 0
+        && data.chunkCount <= 25
+        && data.synthPreset is string
+        && data.synthPreset.size() <= 40
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTrackChunk(data, trackId) {
+      return data.keys().hasAll(['ownerId', 'trackId', 'index', 'dataBase64', 'createdAt'])
+        && data.keys().hasOnly(['ownerId', 'trackId', 'index', 'dataBase64', 'createdAt'])
+        && data.ownerId is string
+        && isValidId(data.ownerId)
+        && data.ownerId == request.auth.uid
+        && data.trackId is string
+        && isValidId(data.trackId)
+        && data.trackId == trackId
+        && data.index is int
+        && data.index >= 0
+        && data.index < 25
+        && data.dataBase64 is string
+        && data.dataBase64.size() >= 1
+        && data.dataBase64.size() <= 750000
+        && data.createdAt is timestamp;
+    }
+
+    match /users/{userId}/tracks/{trackId} {
+      allow list: if isVerifiedOwner(userId) && resource.data.ownerId == request.auth.uid;
+
+      allow get: if isVerifiedOwner(userId)
+        && isValidId(trackId)
+        && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isVerifiedOwner(userId)
+        && isValidId(trackId)
+        && isValidTrack(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedOwner(userId)
+        && isValidId(trackId)
+        && isValidTrack(incoming())
+        && existing().ownerId == request.auth.uid
+        && incoming().ownerId == existing().ownerId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'artist', 'coverSrc', 'updatedAt']);
+
+      allow delete: if isVerifiedOwner(userId)
+        && isValidId(trackId)
+        && existing().ownerId == request.auth.uid;
+
+      match /chunks/{chunkId} {
+        allow list: if isVerifiedOwner(userId)
+          && isValidId(trackId)
+          && resource.data.ownerId == request.auth.uid;
+
+        allow get: if isVerifiedOwner(userId)
+          && isValidId(trackId)
+          && isValidId(chunkId)
+          && resource.data.ownerId == request.auth.uid;
+
+        allow create: if isVerifiedOwner(userId)
+          && isValidId(trackId)
+          && isValidId(chunkId)
+          && isValidTrackChunk(incoming(), trackId)
+          && incoming().createdAt == request.time
+          && existsAfter(/databases/$(database)/documents/users/$(userId)/tracks/$(trackId));
+
+        allow update: if false;
+
+        allow delete: if isVerifiedOwner(userId)
+          && isValidId(trackId)
+          && isValidId(chunkId)
+          && existing().ownerId == request.auth.uid;
+      }
+    }
+  }
+}

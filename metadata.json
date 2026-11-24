@@ -1,0 +1,6 @@
+{
+  "name": "رسائلنا وذكرياتنا — Romantic Love Space",
+  "description": "موقع رومانسي تفاعلي للرسائل، عداد الحب، معرض الذكريات، ومشغل الموسيقى مع تخصيص كامل.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

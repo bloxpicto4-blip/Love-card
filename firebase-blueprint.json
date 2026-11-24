@@ -1,0 +1,123 @@
+{
+  "entities": {
+    "MusicTrackDoc": {
+      "title": "MusicTrackDoc",
+      "description": "Metadata for a user-saved romantic music track stored in Firestore.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the authenticated user who owns this track."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Display title of the song."
+        },
+        "artist": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160,
+          "description": "Artist or romantic dedication label."
+        },
+        "coverSrc": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "Cover image path or URL."
+        },
+        "mimeType": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Audio MIME type (e.g. audio/mpeg)."
+        },
+        "fileSizeBytes": {
+          "type": "integer",
+          "description": "Total size of the uploaded audio file in bytes."
+        },
+        "chunkCount": {
+          "type": "integer",
+          "description": "Number of Base64 audio chunks stored in the chunks subcollection."
+        },
+        "synthPreset": {
+          "type": "string",
+          "maxLength": 40,
+          "description": "Optional built-in synth preset name."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the track was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the track was last updated."
+        }
+      },
+      "required": [
+        "ownerId",
+        "title",
+        "artist",
+        "coverSrc",
+        "mimeType",
+        "fileSizeBytes",
+        "chunkCount",
+        "synthPreset",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MusicTrackChunkDoc": {
+      "title": "MusicTrackChunkDoc",
+      "description": "Chunked Base64 audio payload stored under a music track document to stay safely below Firestore's 1MB limit.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "UID of the track owner."
+        },
+        "trackId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Parent track document ID."
+        },
+        "index": {
+          "type": "integer",
+          "description": "Zero-based sequential chunk index."
+        },
+        "dataBase64": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 750000,
+          "description": "Base64-encoded audio chunk slice."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the chunk was written."
+        }
+      },
+      "required": ["ownerId", "trackId", "index", "dataBase64", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/tracks/{trackId}": {
+      "schema": { "$ref": "#/entities/MusicTrackDoc" },
+      "description": "User's private cloud music library tracks."
+    },
+    "/users/{userId}/tracks/{trackId}/chunks/{chunkId}": {
+      "schema": { "$ref": "#/entities/MusicTrackChunkDoc" },
+      "description": "Ordered Base64 audio data chunks belonging to a cloud music track."
+    }
+  }
+}
